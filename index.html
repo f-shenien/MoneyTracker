@@ -1,1 +1,343 @@
-Money Traker
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Money Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.cdnfonts.com/css/colombo" rel="stylesheet">
+<style>
+body {
+  font-family: 'Roboto', sans-serif;
+  margin:0;
+  padding:0;
+  background: linear-gradient(135deg, #56ab2f, #a8e063);
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding-top:40px;
+}
+
+.tracker {
+  width:90%;
+  max-width:900px;
+  background:white;
+  border-radius:20px;
+  padding:40px 30px 30px 30px;
+  box-shadow:0 15px 35px rgba(0,0,0,0.2);
+}
+
+h1 {
+  text-align:center;
+  margin-bottom:85px;
+  color:#290;
+  font-family:'Colombo', sans-serif;
+  font-size:85px;
+}
+
+.balance-row {
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:15px;
+}
+.balance-row h3 { margin:0; font-size:20px; color:#270; }
+
+.form-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  align-items:center;
+}
+
+.form-row input, .form-row select {
+  flex: 1 1 auto;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.form-row select { text-align-last: left; }
+.form-row button {
+  flex: 0 0 auto;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #4CAF50;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.3s;
+}
+.form-row button:hover { background: #45a049; }
+
+.extra-buttons {
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin-top:10px;
+}
+.btn-history, .btn-restart, .btn-reset {
+  flex:0 0 auto;
+  width:130px;
+  padding:4px 8px;
+  font-size:12px;
+  background:rgba(0,0,0,0.05);
+  border:1px solid rgba(0,0,0,0.1);
+  border-radius:6px;
+  color:#333;
+  cursor:pointer;
+  transition:0.3s;
+}
+.btn-history:hover, .btn-restart:hover, .btn-reset:hover { background: rgba(0,0,0,0.1); }
+
+table { width:100%; border-collapse:collapse; margin-top:15px; font-size:14px; border-radius:10px; overflow:hidden; }
+th, td { padding:8px; border-bottom:1px solid #ddd; text-align:left; }
+th { background:#f0f0f0; }
+.income { color:green; }
+.expense { color:red; }
+.saving { color:blue; }
+.withdraw { color:purple; }
+
+.btn-delete, .btn-edit {
+  background:none;
+  border:none;
+  cursor:pointer;
+  font-weight:500;
+  padding:0;
+  margin:0 3px;
+  text-decoration:underline;
+  font-size:12px;
+}
+.btn-delete { color:#f44336; }
+.btn-edit { color:#2196F3; }
+.btn-delete:hover, .btn-edit:hover { opacity:0.7; }
+
+.transactions-header {
+  display:flex; 
+  justify-content:space-between; 
+  align-items:center;
+}
+.transactions-header span {
+  font-weight:normal; 
+  font-size:16px; 
+  color:red;
+}
+</style>
+</head>
+<body>
+<div class="tracker">
+<h1>Money Tracker</h1>
+
+<div class="balance-row">
+  <h3>Balance: ₱<span id="balance">0</span></h3>
+  <h3>Savings: ₱<span id="savings">0</span></h3>
+</div>
+
+<div class="form-row">
+  <input type="number" id="amount" placeholder="Amount">
+  <input type="text" id="desc" placeholder="Description">
+  <select id="type">
+    <option value="" disabled selected>Select Type</option>
+    <option value="income">Income</option>
+    <option value="expense">Expense</option>
+    <option value="saving">Savings</option>
+    <option value="withdraw">Withdraw</option>
+  </select>
+  <button onclick="saveTransaction()">Save</button>
+</div>
+
+<div class="transactions">
+  <div class="transactions-header">
+    <h3>Transactions</h3>
+    <span id="total-expenses-display">Total Expenses: ₱0.00</span>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Description</th><th>Type</th><th>Amount</th><th>Action</th></tr>
+    </thead>
+    <tbody id="transactions"></tbody>
+  </table>
+
+  <div class="extra-buttons">
+    <button class="btn-reset" onclick="resetTransactions()">Reset</button>
+    <button class="btn-restart" onclick="restartWebsite()">Restart</button>
+    <button class="btn-history" onclick="showHistory()">History</button>
+  </div>
+</div>
+</div>
+
+<script>
+let balance = 0;
+let savings = 0;
+let transactions = [];
+let historyTransactions = [];
+
+if(localStorage.getItem("transactions")) transactions=JSON.parse(localStorage.getItem("transactions"));
+if(localStorage.getItem("historyTransactions")) historyTransactions=JSON.parse(localStorage.getItem("historyTransactions"));
+if(localStorage.getItem("balance")) balance=parseFloat(localStorage.getItem("balance"));
+if(localStorage.getItem("savings")) savings=parseFloat(localStorage.getItem("savings"));
+
+function updateUI(){
+  document.getElementById("balance").textContent = balance.toFixed(2);
+  document.getElementById("savings").textContent = savings.toFixed(2);
+  let tbody=document.getElementById("transactions");
+  tbody.innerHTML="";
+  
+  let totalExpenses = 0;
+
+  transactions.forEach((t,index)=>{
+    tbody.innerHTML+=`<tr>
+      <td>${t.date}</td>
+      <td>${t.desc}</td>
+      <td class="${t.type}">${t.symbol} ${t.type}</td>
+      <td class="${t.type}">₱${t.amount}</td>
+      <td>
+        <button class="btn-edit" onclick="editTransaction(${index})">Edit</button>
+        <button class="btn-delete" onclick="deleteTransaction(${index})">Delete</button>
+      </td>
+    </tr>`;
+    if(t.type==="expense") totalExpenses += t.amount;
+  });
+
+  document.getElementById("total-expenses-display").textContent = `Total Expenses: ₱${totalExpenses.toFixed(2)}`;
+
+  localStorage.setItem("transactions", JSON.stringify(transactions));
+  localStorage.setItem("historyTransactions", JSON.stringify(historyTransactions));
+  localStorage.setItem("balance", balance);
+  localStorage.setItem("savings", savings);
+  clearInputs();
+}
+
+function clearInputs(){ 
+  document.getElementById("amount").value="";
+  document.getElementById("desc").value="";
+  document.getElementById("type").value="";
+}
+
+function saveTransaction(){
+  let type = document.getElementById("type").value;
+  let amount = parseFloat(document.getElementById("amount").value);
+  let desc = document.getElementById("desc").value;
+
+  if(!type){
+    alert("Please select a transaction type!");
+    return;
+  }
+  if(isNaN(amount) || amount <= 0){
+    alert("Please enter a valid amount!");
+    return;
+  }
+
+  let symbol = type==="income" ? "+" : type==="expense" ? "-" : type==="saving" ? "++" : "--";
+  let date = new Date().toISOString().split("T")[0];
+  desc = desc || type.charAt(0).toUpperCase() + type.slice(1);
+
+  if(type==="income") balance += amount;
+  else if(type==="expense"){ if(amount>balance){ alert("Not enough balance!"); return;} balance -= amount; }
+  else if(type==="saving"){ if(amount>balance){ alert("Not enough balance!"); return;} balance -= amount; savings += amount; }
+  else if(type==="withdraw"){ if(amount>savings){ alert("Not enough savings!"); return;} savings -= amount; }
+
+  let transaction = {type, amount, desc, date, symbol};
+  transactions.push(transaction);
+  historyTransactions.push(transaction);
+
+  clearInputs();
+  updateUI();
+}
+
+function deleteTransaction(index){
+  let t=transactions[index];
+  if(t.type==="income") balance-=t.amount;
+  else if(t.type==="expense") balance+=t.amount;
+  else if(t.type==="saving"){ balance+=t.amount; savings-=t.amount; }
+  else if(t.type==="withdraw"){ savings+=t.amount; }
+  transactions.splice(index,1);
+  updateUI();
+}
+
+function editTransaction(index){
+  let t = transactions[index];
+  document.getElementById("amount").value = t.amount;
+  document.getElementById("desc").value = t.desc;
+  document.getElementById("type").value = t.type;
+
+  const saveBtn = document.querySelector(".form-row button");
+  saveBtn.onclick = function(){
+    let newAmount = parseFloat(document.getElementById("amount").value);
+    let newDesc = document.getElementById("desc").value;
+    let newType = document.getElementById("type").value;
+    let newSymbol = newType==="income" ? "+" : newType==="expense" ? "-" : newType==="saving" ? "++" : "--";
+
+    if(!newType){ alert("Please select a transaction type!"); return; }
+    if(isNaN(newAmount) || newAmount <= 0){ alert("Invalid amount"); return; }
+
+    // Revert old transaction
+    if(t.type==="income") balance -= t.amount;
+    else if(t.type==="expense") balance += t.amount;
+    else if(t.type==="saving"){ balance += t.amount; savings -= t.amount; }
+    else if(t.type==="withdraw"){ savings += t.amount; }
+
+    // Apply new transaction
+    if(newType==="income") balance += newAmount;
+    else if(newType==="expense"){ if(newAmount>balance){ alert("Not enough balance!"); return;} balance -= newAmount; }
+    else if(newType==="saving"){ if(newAmount>balance){ alert("Not enough balance!"); return;} balance -= newAmount; savings += newAmount; }
+    else if(newType==="withdraw"){ if(newAmount>savings){ alert("Not enough savings!"); return;} savings -= newAmount; }
+
+    transactions[index]={type:newType, amount:newAmount, desc:newDesc, date:t.date, symbol:newSymbol};
+    historyTransactions.push(transactions[index]);
+    updateUI();
+
+    // Restore Save button back to normal
+    saveBtn.onclick = saveTransaction;
+  }
+}
+
+function resetTransactions(){
+  if(confirm("Reset transactions? This will clear only the transaction list, balance and savings remain.")){
+    transactions=[];
+    localStorage.setItem("transactions", JSON.stringify(transactions));
+    updateUI();
+  }
+}
+
+function restartWebsite(){
+  if(confirm("Restart website? This will clear everything including balance and savings.")){
+    transactions=[];
+    historyTransactions=[];
+    balance=0;
+    savings=0;
+    localStorage.clear();
+    updateUI();
+  }
+}
+
+function showHistory(){
+  let historyWindow=window.open("","History","width=700,height=500,scrollbars=yes");
+  historyWindow.document.write(`
+    <body style="margin:0; font-family:Roboto; background: linear-gradient(135deg, #56ab2f, #a8e063); display:flex; justify-content:center; align-items:flex-start; padding:20px;">
+    <div style="background:white; padding:20px; border-radius:20px; width:90%; max-width:650px;">
+    <h2 style="text-align:center;">All-Time Transaction History</h2>
+    <table border='1' cellpadding='8' cellspacing='0' style="font-size:12px; width:100%; border-radius:10px; overflow:hidden; background:white;">
+      <tr><th>Date</th><th>Description</th><th>Type</th><th>Amount</th></tr>
+      ${historyTransactions.map(t=>`
+        <tr>
+          <td>${t.date}</td>
+          <td>${t.desc}</td>
+          <td>${t.symbol} ${t.type}</td>
+          <td>₱${t.amount}</td>
+        </tr>`).join('')}
+    </table>
+    <div style="margin-top:10px; display:flex; justify-content:center; gap:10px;">
+      <button style="flex:0 0 auto; width:80px; padding:4px 6px; font-size:12px; background:#4CAF50; color:white; border:none; border-radius:6px;" onclick="window.print()">Print</button>
+      <button style="flex:0 0 auto; width:80px; padding:4px 6px; font-size:12px; background:#f44336; color:white; border:none; border-radius:6px;" onclick="if(confirm('Clear all history?')){localStorage.removeItem('historyTransactions');window.close();}">Restart History</button>
+    </div>
+    </div>
+    </body>
+  `);
+}
+
+updateUI();
+</script>
+</body>
+</html>
